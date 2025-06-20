@@ -5,6 +5,7 @@ import logging
 import re
 from app.database import engine, Base
 from fastapi.responses import JSONResponse
+import os
 
 from sqlalchemy import text
 from app.models.schema_models import RicettaOutput, DettagliPasto
