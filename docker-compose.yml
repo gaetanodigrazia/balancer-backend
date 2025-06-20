@@ -3,7 +3,7 @@ version: "3.8"
 services:
   db:
     image: postgres:16
-    container_name: postgres-ocr
+    container_name: postgres-balancer
     restart: always
     environment:
       POSTGRES_USER: postgres
@@ -16,13 +16,16 @@ services:
 
   backend:
     build: .
-    container_name: fastapi-ocr
+    container_name: fastapi-balancer
     depends_on:
       - db
     ports:
       - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     volumes:
-      - .:/app
+      - ./app:/app/app         
+      - ./main.py:/app/main.py
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 volumes:

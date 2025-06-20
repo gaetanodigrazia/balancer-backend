@@ -9,10 +9,13 @@ COPY requirements.txt .
 # Installa le dipendenze
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia il codice sorgente
+# Copia il file .env per le variabili ambiente
+COPY .env .env
+
+# Copia tutto il codice sorgente
 COPY . .
 
-# Espone la porta (opzionale, per chiarezza)
+# Espone la porta
 EXPOSE 8000
 
 # Comando per avviare l'app

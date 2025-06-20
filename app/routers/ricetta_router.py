@@ -1,8 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from typing import Dict
 import json
 import logging
 import re
+from app.database import engine, Base
+from fastapi.responses import JSONResponse
 
 from sqlalchemy import text
 from app.models.schema_models import RicettaOutput, DettagliPasto
@@ -139,3 +141,16 @@ async def genera_ricetta(schema_id: int, tipo_pasto: str):
             raise HTTPException(status_code=400, detail="Tipo pasto non supportato per esempio fittizio.")
 
         return ricette_mock[tipo_pasto]
+
+
+@router.get("/init-db/{secret}")
+async def init_db(secret: str):
+    expected_secret = os.getenv("INIT_SECRET")
+    
+    if secret != expected_secret:
+        raise HTTPException(status_code=403, detail="❌ Accesso non autorizzato")
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    return JSONResponse(content={"message": "✅ Database inizializzato con successo"})
