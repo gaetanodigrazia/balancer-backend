@@ -15,7 +15,8 @@ app = FastAPI(title="Schema Nutrizionale Backend")
 # Middleware CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://balancer-dashboard.onrender.com/"],
+    allow_origins=["http://localhost:4200/"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
