@@ -9,9 +9,6 @@ COPY requirements.txt .
 # Installa le dipendenze
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia il file .env per le variabili ambiente
-COPY .env .env
-
 # Copia tutto il codice sorgente
 COPY . .
 

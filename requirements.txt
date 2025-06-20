@@ -5,3 +5,4 @@ pydantic
 sqlalchemy>=2.0
 asyncpg
 python-multipart
+psycopg2-binary
