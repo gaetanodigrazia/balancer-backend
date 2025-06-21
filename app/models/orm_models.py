@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, Boolean, String, ForeignKey, Text
+from sqlalchemy import Column, Integer, Float, Boolean, String, ForeignKey, Text, DateTime
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -30,3 +30,13 @@ class SchemaNutrizionale(Base):
     acqua = Column(Float, nullable=False)
     dettagli = Column(Text, nullable=False)
     is_modello = Column(Boolean, default=False)
+    
+class Utente(Base):
+    __tablename__ = "utenti"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, nullable=False)
+    password = Column(String, nullable=False)
+    keysession = Column(String)
+    createdAt = Column(DateTime)
+    expiredAt = Column(DateTime)
