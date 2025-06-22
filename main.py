@@ -1,3 +1,6 @@
+import logging
+from datetime import datetime
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, JSONResponse
@@ -10,16 +13,20 @@ load_dotenv()
 
 from app.routers import ricetta_router, schema_router, scontrino_router, auth
 
-# ✅ Lista di origini ammesse
+# ✅ Logging setup
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+
 ALLOWED_ORIGINS = [
     "https://balancer-dashboard.onrender.com",
     "http://localhost:4200",
 ]
 
-# ✅ Inizializza l'app
 app = FastAPI(title="Schema Nutrizionale Backend")
 
-# ✅ CORS middleware standard
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -28,14 +35,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ Middleware custom per intercettare anche le eccezioni
-class CORSErrorFixMiddleware(BaseHTTPMiddleware):
+# ✅ Middleware custom con logging
+class LoggingAndCORSMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
+        start_time = datetime.utcnow()
         try:
             response = await call_next(request)
         except Exception as exc:
-            print("❌ Errore intercettato dal middleware:", exc)
-            response = JSONResponse(content={"detail": str(exc)}, status_code=500)
+            logging.error("❌ Eccezione: %s", str(exc), exc_info=True)
+            response = JSONResponse(content={"detail": "Errore interno"}, status_code=500)
+
+        duration = (datetime.utcnow() - start_time).total_seconds()
+        user_agent = request.headers.get("user-agent", "-")
+        ip = request.client.host
+        logging.info(
+            "➡️ %s %s → %s [%.3fs] | IP: %s | UA: %s",
+            request.method, request.url.path, response.status_code, duration, ip, user_agent
+        )
 
         origin = request.headers.get("origin")
         if origin in ALLOWED_ORIGINS:
@@ -46,9 +62,8 @@ class CORSErrorFixMiddleware(BaseHTTPMiddleware):
 
         return response
 
-app.add_middleware(CORSErrorFixMiddleware)
+app.add_middleware(LoggingAndCORSMiddleware)
 
-# ✅ Gestione preflight OPTIONS
 @app.options("/{full_path:path}")
 async def preflight_handler(request: Request, full_path: str):
     origin = request.headers.get("origin")
@@ -62,7 +77,7 @@ async def preflight_handler(request: Request, full_path: str):
         return Response(status_code=200, headers=headers)
     return Response(status_code=403)
 
-# ✅ Configura OpenAI client
+# ✅ OpenAI client
 client = OpenAI(
     api_key=os.environ.get("OPENAI_API_KEY"),
     default_headers={"OpenAI-Client-Data-Retention": "none"},
@@ -71,13 +86,12 @@ client = OpenAI(
 ricetta_router.client = client
 scontrino_router.client = client
 
-# ✅ Registra router
+# ✅ Routers
 app.include_router(ricetta_router.router)
 app.include_router(schema_router.router)
 app.include_router(scontrino_router.router)
 app.include_router(auth.router)
 
-# ✅ Health check
 @app.get("/")
 async def root():
     return {"message": "Balancer backend è attivo."}
