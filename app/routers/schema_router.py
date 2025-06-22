@@ -1,17 +1,25 @@
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import APIRouter, HTTPException, Body, Depends, Header
 from typing import List
 import json
 import logging
 
 from app.models.schema_models import SchemaNutrizionaleInput, SchemaNutrizionaleOut, DettagliPasto
-from app.models.orm_models import SchemaNutrizionale
+from app.models.orm_models import SchemaNutrizionale, Utente
 from app.database import SessionLocal
 from sqlalchemy import text
-from fastapi import Depends
+from sqlalchemy.future import select
 
 
 router = APIRouter(prefix="/schemi-nutrizionali", tags=["schemi-nutrizionali"])
 logger = logging.getLogger("uvicorn.error")
+
+async def get_current_user(token: str = Header(...)) -> Utente:
+    async with SessionLocal() as session:
+        result = await session.execute(select(Utente).where(Utente.keysession == token))
+        user = result.scalars().first()
+        if not user:
+            raise HTTPException(status_code=401, detail="Token non valido")
+        return user
 
 def normalizza_dettagli(raw_dettagli: dict) -> dict:
     normalized = {}
@@ -26,9 +34,12 @@ def normalizza_dettagli(raw_dettagli: dict) -> dict:
     return normalized
 
 @router.get("", response_model=List[SchemaNutrizionaleOut])
-async def get_schemi():
+async def get_schemi(current_user: Utente = Depends(get_current_user)):
     async with SessionLocal() as session:
-        result = await session.execute(text("SELECT * FROM schemi_nutrizionali ORDER BY id DESC"))
+        result = await session.execute(
+            text("SELECT * FROM schemi_nutrizionali WHERE is_global = 1 OR utente_id = :uid ORDER BY id DESC"),
+            {"uid": current_user.id}
+        )
         rows = result.fetchall()
         schemi = []
         for row in rows:
@@ -45,7 +56,7 @@ async def get_schemi():
         return schemi
     
 @router.post("", response_model=List[SchemaNutrizionaleOut])
-async def crea_schemi(schemi: List[SchemaNutrizionaleInput]):
+async def crea_schemi(schemi: List[SchemaNutrizionaleInput], current_user: Utente = Depends(get_current_user)):
     saved_schemi = []
     async with SessionLocal() as session:
         for schema in schemi:
@@ -54,9 +65,8 @@ async def crea_schemi(schemi: List[SchemaNutrizionaleInput]):
 
             if schema.id:
                 db_schema = await session.get(SchemaNutrizionale, schema.id)
-                if not db_schema:
-                    raise HTTPException(status_code=404, detail="Schema non trovato per update")
-                # 🔁 UPDATE
+                if not db_schema or (db_schema.utente_id != current_user.id and not db_schema.is_global):
+                    raise HTTPException(status_code=403, detail="Accesso non autorizzato allo schema")
                 db_schema.nome = schema.nome
                 db_schema.calorie = schema.calorie
                 db_schema.carboidrati = schema.carboidrati
@@ -65,14 +75,13 @@ async def crea_schemi(schemi: List[SchemaNutrizionaleInput]):
                 db_schema.acqua = schema.acqua
                 db_schema.dettagli = dettagli_json
                 db_schema.is_modello = schema.is_modello
+                db_schema.is_global = schema.is_global
             else:
-                # 🆕 CREATE
                 existing = await session.execute(
                     text("SELECT * FROM schemi_nutrizionali WHERE nome = :nome"),
                     {"nome": schema.nome}
                 )
-                existing_row = existing.first()
-                if existing_row:
+                if existing.first():
                     raise HTTPException(status_code=400, detail=f"Schema con nome '{schema.nome}' già esistente")
 
                 db_schema = SchemaNutrizionale(
@@ -83,7 +92,9 @@ async def crea_schemi(schemi: List[SchemaNutrizionaleInput]):
                     proteine=schema.proteine,
                     acqua=schema.acqua,
                     dettagli=dettagli_json,
-                    is_modello=schema.is_modello
+                    is_modello=schema.is_modello,
+                    is_global=schema.is_global,
+                    utente_id=current_user.id
                 )
                 session.add(db_schema)
 
@@ -93,7 +104,6 @@ async def crea_schemi(schemi: List[SchemaNutrizionaleInput]):
         for s in saved_schemi:
             await session.refresh(s)
 
-    # Output
     result = []
     for s in saved_schemi:
         try:
@@ -110,11 +120,13 @@ async def crea_schemi(schemi: List[SchemaNutrizionaleInput]):
             proteine=s.proteine,
             acqua=s.acqua,
             is_modello=s.is_modello,
+            is_global=s.is_global,
             dettagli=dettagli_obj
         )
         result.append(schema_out)
 
     return result
+
 
 
 @router.post("/dati-generali")
@@ -179,7 +191,7 @@ async def salva_dati_generali(payload: dict = Body(...)):
 
 
 @router.post("/dinamico/completo")
-async def salva_schema_completo(payload: dict = Body(...)):
+async def salva_schema_completo(payload: dict = Body(...), current_user: Utente = Depends(get_current_user)):
     nome = payload.get("nome")
     tipo_schema = payload.get("tipoSchema")
     tipo_pasto = payload.get("tipoPasto")
@@ -189,17 +201,18 @@ async def salva_schema_completo(payload: dict = Body(...)):
         raise HTTPException(status_code=400, detail="Tutti i campi sono obbligatori")
 
     async with SessionLocal() as session:
-        existing = await session.execute(
-            text("SELECT * FROM schemi_nutrizionali WHERE nome = :nome"),
-            {"nome": nome}
+        result = await session.execute(
+            text("SELECT * FROM schemi_nutrizionali WHERE nome = :nome"), {"nome": nome}
         )
-        existing_row = existing.first()
-        if not existing_row:
+        row = result.first()
+        if not row:
             raise HTTPException(status_code=404, detail="Schema nutrizionale non trovato")
 
-        db_schema = await session.get(SchemaNutrizionale, existing_row.id)
-        dettagli_dict = json.loads(db_schema.dettagli) if db_schema.dettagli else {}
+        db_schema = await session.get(SchemaNutrizionale, row.id)
+        if db_schema.utente_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Accesso non autorizzato")
 
+        dettagli_dict = json.loads(db_schema.dettagli or '{}')
         dettagli_dict[tipo_pasto] = dettagli
         db_schema.dettagli = json.dumps(dettagli_dict)
 
@@ -208,8 +221,12 @@ async def salva_schema_completo(payload: dict = Body(...)):
 
     return {"status": "ok", "message": "Schema completo salvato con successo"}
 
+
+
+
+
 @router.post("/dinamico/pasto")
-async def salva_singolo_pasto(payload: dict = Body(...)):
+async def salva_singolo_pasto(payload: dict = Body(...), current_user: Utente = Depends(get_current_user)):
     nome = payload.get("nome")
     tipo_schema = payload.get("tipoSchema")
     tipo_pasto = payload.get("tipoPasto")
@@ -218,48 +235,50 @@ async def salva_singolo_pasto(payload: dict = Body(...)):
     if not all([nome, tipo_schema, tipo_pasto, dettagli]):
         raise HTTPException(status_code=400, detail="Tutti i campi sono obbligatori")
 
-    # ✅ Imposta "salvata": True in ogni opzione
     for opzione in dettagli.get("opzioni", []):
         opzione["salvata"] = True
 
     async with SessionLocal() as session:
-        existing = await session.execute(
-            text("SELECT * FROM schemi_nutrizionali WHERE nome = :nome"),
-            {"nome": nome}
+        result = await session.execute(
+            text("SELECT * FROM schemi_nutrizionali WHERE nome = :nome"), {"nome": nome}
         )
-        existing_row = existing.first()
-        if not existing_row:
+        row = result.first()
+        if not row:
             raise HTTPException(status_code=404, detail="Schema nutrizionale non trovato")
 
-        db_schema = await session.get(SchemaNutrizionale, existing_row.id)
+        db_schema = await session.get(SchemaNutrizionale, row.id)
+        if db_schema.utente_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Accesso non autorizzato")
+
         dettagli_dict = json.loads(db_schema.dettagli or '{}')
-
-        # ✅ Sovrascrive solo le opzioni di quel tipo_pasto
         dettagli_dict[tipo_pasto] = dettagli
-
         db_schema.dettagli = json.dumps(dettagli_dict)
+
         await session.commit()
         await session.refresh(db_schema)
 
     return {"status": "ok", "message": "Dettagli pasto aggiornati con successo"}
 
+
+
+
 @router.delete("/{id}")
-async def elimina_schema(id: int):
+async def elimina_schema(id: int, current_user: Utente = Depends(get_current_user)):
     async with SessionLocal() as session:
         schema = await session.get(SchemaNutrizionale, id)
-        if not schema:
-            raise HTTPException(status_code=404, detail="Schema non trovato")
+        if not schema or schema.utente_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Accesso non autorizzato o schema non trovato")
         await session.delete(schema)
         await session.commit()
     return {"status": "ok", "message": f"Schema con id {id} eliminato."}
 
 
 @router.get("/{schema_id}")
-async def get_schema(schema_id: int):
+async def get_schema(schema_id: int, current_user: Utente = Depends(get_current_user)):
     async with SessionLocal() as session:
         db_schema = await session.get(SchemaNutrizionale, schema_id)
-        if not db_schema:
-            raise HTTPException(status_code=404, detail="Schema non trovato")
+        if not db_schema or (db_schema.utente_id != current_user.id and not db_schema.is_global):
+            raise HTTPException(status_code=403, detail="Accesso non autorizzato o schema non trovato")
 
         data = db_schema.__dict__.copy()
         if data.get("dettagli"):

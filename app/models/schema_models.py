@@ -44,6 +44,7 @@ class DettagliPasto(BaseModel):
 # --- Schema Nutrizionale ---
 
 class SchemaNutrizionaleInput(BaseModel):
+    id: Optional[int] = None
     nome: str
     calorie: float
     carboidrati: float
@@ -51,7 +52,9 @@ class SchemaNutrizionaleInput(BaseModel):
     proteine: float
     acqua: float
     dettagli: Dict[str, DettagliPasto]
-    is_modello: Optional[bool] = False
+    is_modello: bool = False
+    is_global: bool = False  # ✅ aggiunto
+
 
 class SchemaNutrizionaleOut(SchemaNutrizionaleInput):
     id: int

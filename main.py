@@ -4,11 +4,9 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 
-# Carica variabili ambiente
 load_dotenv()
 
-# Importa router
-from app.routers import ricetta_router, schema_router, scontrino_router
+from app.routers import ricetta_router, schema_router, scontrino_router, auth
 
 app = FastAPI(title="Schema Nutrizionale Backend")
 
@@ -34,6 +32,7 @@ scontrino_router.client = client
 app.include_router(ricetta_router.router)
 app.include_router(schema_router.router)
 app.include_router(scontrino_router.router)
+app.include_router(auth.router)
 
 @app.get("/")
 async def root():

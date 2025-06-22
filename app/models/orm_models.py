@@ -13,8 +13,8 @@ class Prodotto(Base):
     __tablename__ = "prodotti"
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String)
-    quantita = Column(Integer)  # quantità in pezzi
-    quantita_grammi = Column(Float, nullable=True)  # nuova colonna quantità in grammi
+    quantita = Column(Integer)
+    quantita_grammi = Column(Float, nullable=True)
     prezzo_unitario = Column(Float)
     scontrino_id = Column(Integer, ForeignKey("scontrini.id"), nullable=True)
     scontrino = relationship("Scontrino", back_populates="prodotti")
@@ -30,10 +30,12 @@ class SchemaNutrizionale(Base):
     acqua = Column(Float, nullable=False)
     dettagli = Column(Text, nullable=False)
     is_modello = Column(Boolean, default=False)
-    
+    utente_id = Column(Integer, ForeignKey("utenti.id"), nullable=True)
+    utente = relationship("Utente")
+    is_global = Column(Boolean, default=False)
+
 class Utente(Base):
     __tablename__ = "utenti"
-
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, nullable=False)
     password = Column(String, nullable=False)
