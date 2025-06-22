@@ -89,3 +89,10 @@ async def crea_utente(payload: dict = Body(...)):
         await session.commit()
         await session.refresh(user)
         return {"id": user.id, "username": user.username}
+
+@router.get("/utenti")
+async def lista_utenti():
+    async with SessionLocal() as session:
+        result = await session.execute(select(Utente))
+        utenti = result.scalars().all()
+        return [{"id": u.id, "username": u.username} for u in utenti]
