@@ -155,3 +155,20 @@ async def init_db(secret: str):
         await conn.run_sync(Base.metadata.create_all)
 
     return JSONResponse(content={"message": "✅ Database inizializzato con successo"})
+
+
+@router.get("/reset-db/{secret}")
+async def reset_db(secret: str):
+    expected_secret = os.getenv("INIT_SECRET")
+
+    if secret != expected_secret:
+        raise HTTPException(status_code=403, detail="❌ Accesso non autorizzato")
+
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Errore nel reset: {str(e)}")
+
+    return JSONResponse(content={"message": "✅ Database resettato con successo"})
