@@ -122,7 +122,7 @@ async def crea_schemi(schemi: List[SchemaNutrizionaleInput], current_user: Utent
 
 
 @router.post("/dati-generali")
-async def salva_dati_generali(payload: dict = Body(...), current_user: Utente = Depends(get_current_user)):
+async def salva_dati_generali(payload: dict = Body(...), token: str = Header(...)):
     nome = payload.get("nome")
     calorie = payload.get("calorie")
     carboidrati = payload.get("carboidrati")
@@ -136,24 +136,24 @@ async def salva_dati_generali(payload: dict = Body(...), current_user: Utente = 
     if not all([nome, calorie, carboidrati, grassi, proteine, acqua]):
         raise HTTPException(status_code=400, detail="Tutti i campi sono obbligatori")
 
-    dettagli = "{}"
+    async with SessionLocal() as session:
+        result = await session.execute(select(Utente).where(Utente.keysession == token))
+        user = result.scalars().first()
+        if not user:
+            raise HTTPException(status_code=401, detail="Token non valido")
 
-    if clona_da:
-        async with SessionLocal() as session:
+        dettagli = "{}"
+        if clona_da:
             modello = await session.get(SchemaNutrizionale, clona_da)
             if modello:
                 dettagli = modello.dettagli or "{}"
 
-    async with SessionLocal() as session:
-        existing = await session.execute(
-            text("SELECT * FROM schemi_nutrizionali WHERE nome = :nome"),
-            {"nome": nome}
-        )
-        existing_row = existing.first()
-
-        if existing_row:
-            existing_id = existing_row._mapping["id"]
-            db_schema = await session.get(SchemaNutrizionale, existing_id)
+        schema_id = payload.get("id")
+        if schema_id:
+            db_schema = await session.get(SchemaNutrizionale, schema_id)
+            if not db_schema:
+                raise HTTPException(status_code=404, detail="Schema non trovato")
+            db_schema.nome = nome
             db_schema.calorie = calorie
             db_schema.carboidrati = carboidrati
             db_schema.grassi = grassi
@@ -161,6 +161,7 @@ async def salva_dati_generali(payload: dict = Body(...), current_user: Utente = 
             db_schema.acqua = acqua
             db_schema.is_modello = is_modello
             db_schema.is_global = is_global
+            db_schema.utente_id = user.id
             if clona_da:
                 db_schema.dettagli = dettagli
         else:
@@ -174,14 +175,14 @@ async def salva_dati_generali(payload: dict = Body(...), current_user: Utente = 
                 is_modello=is_modello,
                 is_global=is_global,
                 dettagli=dettagli,
-                utente_id=current_user.id
+                utente_id=user.id
             )
             session.add(db_schema)
 
         await session.commit()
         await session.refresh(db_schema)
 
-        logger.info(f"✅ Salvato schema '{nome}' (ID: {db_schema.id}) per utente {current_user.id}")
+        logger.info(f"✅ Salvato schema '{nome}' (ID: {db_schema.id}) per utente {user.id}")
 
     return {"status": "ok", "message": "Dati generali salvati con successo"}
 
