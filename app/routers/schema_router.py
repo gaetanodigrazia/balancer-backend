@@ -29,7 +29,7 @@ def normalizza_dettagli(raw_dettagli: dict) -> dict:
 async def get_schemi(current_user: Utente = Depends(get_current_user)):
     async with SessionLocal() as session:
         result = await session.execute(
-            text("SELECT * FROM schemi_nutrizionali WHERE is_global = 1 OR utente_id = :uid ORDER BY id DESC"),
+            text("SELECT * FROM schemi_nutrizionali WHERE is_global = false AND utente_id = :uid ORDER BY id DESC"),
             {"uid": current_user.id}
         )
         rows = result.fetchall()
@@ -404,7 +404,7 @@ async def clona_schema(schema_id: int):
 async def get_globali():
     async with SessionLocal() as session:
         result = await session.execute(
-            text("SELECT * FROM schemi_nutrizionali WHERE is_global = 1 ORDER BY id DESC")
+            text("SELECT * FROM schemi_nutrizionali WHERE is_global = true ORDER BY id DESC")
         )
         rows = result.fetchall()
         schemi = []
@@ -426,7 +426,7 @@ async def get_globali():
 async def get_schemi_globali():
     async with SessionLocal() as session:
         result = await session.execute(
-            text("SELECT * FROM schemi_nutrizionali WHERE is_global = 1 ORDER BY id DESC")
+            text("SELECT * FROM schemi_nutrizionali WHERE is_global = true ORDER BY id DESC")
         )
         rows = result.fetchall()
         schemi = []
