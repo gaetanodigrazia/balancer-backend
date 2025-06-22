@@ -40,5 +40,5 @@ class Utente(Base):
     username = Column(String, unique=True, nullable=False)
     password = Column(String, nullable=False)
     keysession = Column(String)
-    createdAt = Column(DateTime)
-    expiredAt = Column(DateTime)
+    createdAt = Column(DateTime, name="createdat")
+    expiredAt = Column(DateTime, name="expiredat")

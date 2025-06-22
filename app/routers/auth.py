@@ -29,7 +29,7 @@ async def login(payload: dict = Body(...)):
                 raise HTTPException(status_code=401, detail="Credenziali non valide")
             print(f"[DEBUG] Utente trovato: {user.username} (ID: {user.id})")
 
-            # ✅ Genera token temporaneo
+            
             keysession = str(uuid.uuid4())
             now = datetime.utcnow()
             expired = now + timedelta(hours=1)

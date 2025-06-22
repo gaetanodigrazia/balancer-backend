@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Legge direttamente l'intera stringa di connessione
+
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
