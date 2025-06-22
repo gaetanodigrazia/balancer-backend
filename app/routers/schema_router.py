@@ -122,7 +122,7 @@ async def crea_schemi(schemi: List[SchemaNutrizionaleInput], current_user: Utent
 
 
 @router.post("/dati-generali")
-async def salva_dati_generali(payload: dict = Body(...)):
+async def salva_dati_generali(payload: dict = Body(...), current_user: Utente = Depends(get_current_user)):
     nome = payload.get("nome")
     calorie = payload.get("calorie")
     carboidrati = payload.get("carboidrati")
@@ -130,6 +130,7 @@ async def salva_dati_generali(payload: dict = Body(...)):
     proteine = payload.get("proteine")
     acqua = payload.get("acqua")
     is_modello = payload.get("is_modello", False)
+    is_global = False  # sempre false come richiesto
     clona_da = payload.get("clona_da")
 
     if not all([nome, calorie, carboidrati, grassi, proteine, acqua]):
@@ -137,7 +138,6 @@ async def salva_dati_generali(payload: dict = Body(...)):
 
     dettagli = "{}"
 
-    # Se c'è un modello da cui clonare
     if clona_da:
         async with SessionLocal() as session:
             modello = await session.get(SchemaNutrizionale, clona_da)
@@ -152,13 +152,15 @@ async def salva_dati_generali(payload: dict = Body(...)):
         existing_row = existing.first()
 
         if existing_row:
-            db_schema = await session.get(SchemaNutrizionale, existing_row.id)
+            existing_id = existing_row._mapping["id"]
+            db_schema = await session.get(SchemaNutrizionale, existing_id)
             db_schema.calorie = calorie
             db_schema.carboidrati = carboidrati
             db_schema.grassi = grassi
             db_schema.proteine = proteine
             db_schema.acqua = acqua
             db_schema.is_modello = is_modello
+            db_schema.is_global = is_global
             if clona_da:
                 db_schema.dettagli = dettagli
         else:
@@ -170,15 +172,18 @@ async def salva_dati_generali(payload: dict = Body(...)):
                 proteine=proteine,
                 acqua=acqua,
                 is_modello=is_modello,
+                is_global=is_global,
                 dettagli=dettagli,
+                utente_id=current_user.id
             )
             session.add(db_schema)
 
         await session.commit()
         await session.refresh(db_schema)
 
-    return {"status": "ok", "message": "Dati generali salvati con successo"}
+        logger.info(f"✅ Salvato schema '{nome}' (ID: {db_schema.id}) per utente {current_user.id}")
 
+    return {"status": "ok", "message": "Dati generali salvati con successo"}
 
 
 
@@ -396,6 +401,28 @@ async def clona_schema(schema_id: int):
 
 @router.get("/globali", response_model=List[SchemaNutrizionaleOut])
 async def get_globali():
+    async with SessionLocal() as session:
+        result = await session.execute(
+            text("SELECT * FROM schemi_nutrizionali WHERE is_global = 1 ORDER BY id DESC")
+        )
+        rows = result.fetchall()
+        schemi = []
+        for row in rows:
+            data = dict(row._mapping)
+            if data.get('dettagli'):
+                try:
+                    dettagli_raw = json.loads(data['dettagli'])
+                    data['dettagli'] = normalizza_dettagli(dettagli_raw)
+                except Exception:
+                    data['dettagli'] = {}
+            else:
+                data['dettagli'] = {}
+            schemi.append(data)
+        return schemi
+    
+    
+@router.get("/globali", response_model=List[SchemaNutrizionaleOut])
+async def get_schemi_globali():
     async with SessionLocal() as session:
         result = await session.execute(
             text("SELECT * FROM schemi_nutrizionali WHERE is_global = 1 ORDER BY id DESC")
