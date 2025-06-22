@@ -6,6 +6,7 @@ from app.models.orm_models import Utente
 from app.database import SessionLocal
 import uuid
 from datetime import datetime, timedelta
+import traceback
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
