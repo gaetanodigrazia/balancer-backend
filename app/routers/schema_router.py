@@ -400,3 +400,25 @@ async def clona_schema(schema_id: int):
             is_modello=nuovo_schema.is_modello,
             dettagli=dettagli_parsed
         )
+
+
+@router.get("/globali", response_model=List[SchemaNutrizionaleOut])
+async def get_globali():
+    async with SessionLocal() as session:
+        result = await session.execute(
+            text("SELECT * FROM schemi_nutrizionali WHERE is_global = 1 ORDER BY id DESC")
+        )
+        rows = result.fetchall()
+        schemi = []
+        for row in rows:
+            data = dict(row._mapping)
+            if data.get('dettagli'):
+                try:
+                    dettagli_raw = json.loads(data['dettagli'])
+                    data['dettagli'] = normalizza_dettagli(dettagli_raw)
+                except Exception:
+                    data['dettagli'] = {}
+            else:
+                data['dettagli'] = {}
+            schemi.append(data)
+        return schemi
