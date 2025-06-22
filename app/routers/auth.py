@@ -7,6 +7,8 @@ from app.database import SessionLocal
 import uuid
 from datetime import datetime, timedelta
 import traceback
+import logging
+logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -48,9 +50,10 @@ async def login(payload: dict = Body(...)):
             }
 
     except Exception as e:
-        print("[LOGIN ERROR] Eccezione catturata:")
-        traceback.print_exc()
+        logger.error("[LOGIN ERROR] Eccezione catturata:")
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail="Errore interno al server durante il login")
+
 
         
 @router.post("/logout")
