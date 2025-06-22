@@ -2,24 +2,16 @@ from fastapi import APIRouter, HTTPException, Body, Depends, Header
 from typing import List
 import json
 import logging
-
+from app.auth.dependencies import get_current_user
 from app.models.schema_models import SchemaNutrizionaleInput, SchemaNutrizionaleOut, DettagliPasto
 from app.models.orm_models import SchemaNutrizionale, Utente
 from app.database import SessionLocal
 from sqlalchemy import text
 from sqlalchemy.future import select
 
-
 router = APIRouter(prefix="/schemi-nutrizionali", tags=["schemi-nutrizionali"])
 logger = logging.getLogger("uvicorn.error")
 
-async def get_current_user(token: str = Header(...)) -> Utente:
-    async with SessionLocal() as session:
-        result = await session.execute(select(Utente).where(Utente.keysession == token))
-        user = result.scalars().first()
-        if not user:
-            raise HTTPException(status_code=401, detail="Token non valido")
-        return user
 
 def normalizza_dettagli(raw_dettagli: dict) -> dict:
     normalized = {}
