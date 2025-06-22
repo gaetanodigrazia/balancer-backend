@@ -316,11 +316,18 @@ async def elimina_opzione_per_id(schema_id: int, tipo_pasto: str, opzione_id: st
 
 
 
-
 @router.get("/schema/modelli", response_model=List[SchemaNutrizionaleOut])
-async def getModelli():
+async def getModelli(current_user: Utente = Depends(get_current_user)):
     async with SessionLocal() as session:
-        result = await session.execute(text("SELECT * FROM schemi_nutrizionali ORDER BY id DESC"))
+        result = await session.execute(
+            text("""
+                SELECT * 
+                FROM schemi_nutrizionali 
+                WHERE is_modello = true AND is_global = false AND utente_id = :uid 
+                ORDER BY id DESC
+            """),
+            {"uid": current_user.id}
+        )
         rows = result.fetchall()
         schemi = []
         for row in rows:
@@ -333,11 +340,10 @@ async def getModelli():
                     data['dettagli'] = {}
             else:
                 data['dettagli'] = {}
-            
-            if data.get("is_modello", False):
-                schemi.append(data)
+            schemi.append(data)
 
         return schemi
+
 
 
 @router.post("/clona/{schema_id}", response_model=SchemaNutrizionaleOut)
