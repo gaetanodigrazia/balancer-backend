@@ -122,7 +122,7 @@ async def crea_schemi(schemi: List[SchemaNutrizionaleInput], current_user: Utent
 
 
 @router.post("/dati-generali")
-async def salva_dati_generali(payload: dict = Body(...), token: str = Header(...)):
+async def salva_dati_generali(payload: dict = Body(...), current_user: Utente = Depends(get_current_user)):
     nome = payload.get("nome")
     calorie = payload.get("calorie")
     carboidrati = payload.get("carboidrati")
@@ -137,7 +137,7 @@ async def salva_dati_generali(payload: dict = Body(...), token: str = Header(...
         raise HTTPException(status_code=400, detail="Tutti i campi sono obbligatori")
 
     async with SessionLocal() as session:
-        result = await session.execute(select(Utente).where(Utente.keysession == token))
+        result = await session.execute(select(Utente).where(Utente.keysession == current_user.keysession))
         user = result.scalars().first()
         if not user:
             raise HTTPException(status_code=401, detail="Token non valido")
