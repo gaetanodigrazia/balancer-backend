@@ -9,15 +9,6 @@ from datetime import datetime, timedelta
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-from fastapi import APIRouter, HTTPException, Body
-from sqlalchemy.future import select
-from app.database import SessionLocal
-from app.models.orm_models import Utente
-from datetime import datetime, timedelta
-import uuid
-
-router = APIRouter(prefix="/auth", tags=["auth"])
-
 @router.post("/login")
 async def login(payload: dict = Body(...)):
     try:
@@ -35,6 +26,7 @@ async def login(payload: dict = Body(...)):
 
             if not user:
                 raise HTTPException(status_code=401, detail="Credenziali non valide")
+            print(f"[DEBUG] Utente trovato: {user.username} (ID: {user.id})")
 
             # ✅ Genera token temporaneo
             keysession = str(uuid.uuid4())
@@ -55,8 +47,8 @@ async def login(payload: dict = Body(...)):
             }
 
     except Exception as e:
-        # 🔴 logga l'errore, ma non lo esporre in produzione
-        print(f"[LOGIN ERROR] {e}")
+        print("[LOGIN ERROR] Eccezione catturata:")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="Errore interno al server durante il login")
 
         
@@ -81,3 +73,15 @@ async def logout(payload: dict = Body(...)):
 
         await session.commit()
         return {"status": "ok", "message": "Logout effettuato con successo"}
+
+@router.post("/debug-crea-utente")
+async def crea_utente(payload: dict = Body(...)):
+    async with SessionLocal() as session:
+        user = Utente(
+            username=payload["username"],
+            password=payload["password"]
+        )
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+        return {"id": user.id, "username": user.username}
