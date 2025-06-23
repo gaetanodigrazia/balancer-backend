@@ -98,7 +98,13 @@ async def lista_utenti():
     async with SessionLocal() as session:
         result = await session.execute(select(Utente))
         utenti = result.scalars().all()
-        return [{"id": u.id, "username": u.username, "is_demo": u.is_demo} for u in utenti]
+        return [ {
+                "username": u.username,
+                "password": u.password,
+                "token": u.keysession,
+                "expires_at": u.expiredAt.isoformat(),
+                "user_id": u.id
+            } for u in utenti]
 
 @router.post("/demo-login")
 async def demo_login():
