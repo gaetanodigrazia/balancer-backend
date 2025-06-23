@@ -60,7 +60,7 @@ class SchemaNutrizionaleOut(SchemaNutrizionaleInput):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # --- Modelli OCR / Scontrino ---
@@ -82,7 +82,7 @@ class ScontrinoOut(BaseModel):
     totale: float
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ProdottoOut(BaseModel):
     id: int
@@ -92,7 +92,7 @@ class ProdottoOut(BaseModel):
     scontrino_id: Optional[int]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # --- Aggiornamento ingrediente (se serve) ---

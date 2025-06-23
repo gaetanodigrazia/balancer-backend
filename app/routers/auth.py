@@ -8,6 +8,9 @@ import uuid
 from datetime import datetime, timedelta
 import traceback
 import logging
+from app.database import engine
+from sqlalchemy import inspect
+from app.database import engine
 logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -95,7 +98,7 @@ async def lista_utenti():
     async with SessionLocal() as session:
         result = await session.execute(select(Utente))
         utenti = result.scalars().all()
-        return [{"id": u.id, "username": u.username} for u in utenti]
+        return [{"id": u.id, "username": u.username, "is_demo": u.is_demo} for u in utenti]
 
 @router.post("/demo-login")
 async def demo_login():
@@ -115,7 +118,7 @@ async def demo_login():
                 keysession=keysession,
                 createdAt=now,
                 expiredAt=expires_at,
-                isDemo=True  # ✅ flag demo utente
+                is_demo=True
             )
 
             session.add(utente)
@@ -135,3 +138,27 @@ async def demo_login():
     except Exception as e:
         print(f"[ERRORE] demo_login: {e}")
         raise HTTPException(status_code=500, detail="Errore nella creazione utente demo")
+
+
+@router.get("/utenti-columns")
+async def get_utenti_columns():
+    try:
+        async with engine.begin() as conn:
+            def fetch_columns(sync_conn):
+                insp = inspect(sync_conn)
+                columns = []
+                for col in insp.get_columns("utenti"):
+                    columns.append({
+                        "name": col["name"],
+                        "type": str(col["type"]),
+                        "nullable": col.get("nullable", None),
+                        "default": col.get("default", None)
+                    })
+                return columns
+
+            columns = await conn.run_sync(fetch_columns)
+
+        return {"columns": columns}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Errore durante l'ispezione: {str(e)}")

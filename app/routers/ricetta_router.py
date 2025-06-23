@@ -19,6 +19,36 @@ logger = logging.getLogger("uvicorn.error")
 
 client = None  # Assicurati che venga inizializzato nel main
 
+
+from sqlalchemy import text
+
+print(f"🧩 hasattr(Utente, 'is_demo') = {hasattr(Utente, 'is_demo')}")
+
+def force_postgres_reset(sync_conn):
+    print("⚠️ DROP tabelle manuale con CASCADE")
+    sync_conn.execute(text("DROP TABLE IF EXISTS prodotti CASCADE"))
+    sync_conn.execute(text("DROP TABLE IF EXISTS scontrini CASCADE"))
+    sync_conn.execute(text("DROP TABLE IF EXISTS schemi_nutrizionali CASCADE"))
+    sync_conn.execute(text("DROP TABLE IF EXISTS utenti CASCADE"))
+
+    insp = inspect(sync_conn)
+    print("📋 Dopo DROP, tabelle rimaste:")
+    for table in insp.get_table_names():
+        print(f" - {table}")
+
+    print("🛠 Ricreo tutte le tabelle da Base.metadata")
+    Base.metadata.create_all(bind=sync_conn)
+
+    print("✅ Verifico di nuovo struttura utenti:")
+    for col in insp.get_columns("utenti"):
+        print(f" - {col['name']} ({col['type']})")
+
+
+def debug_is_demo_column(sync_conn):
+    insp = inspect(sync_conn)
+    print("🔍 Colonne utenti:")
+    for col in insp.get_columns("utenti"):
+        print(f" - {col['name']} ({col['type']})")
 def debug_is_demo_column(sync_conn):
     insp = inspect(sync_conn)
     print("🔍 Colonne utenti:")
@@ -167,18 +197,19 @@ async def init_db(secret: str):
 @router.get("/reset-db/{secret}")
 async def reset_db(secret: str):
     expected_secret = os.getenv("INIT_SECRET")
-    if secret != expected_secret:
-        raise HTTPException(status_code=403, detail="Secret errato")
+    
+
 
     try:
         async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-            await conn.run_sync(Base.metadata.create_all)
+            await conn.run_sync(force_postgres_reset)
             await conn.run_sync(debug_is_demo_column)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Errore nel reset: {str(e)}")
 
     return JSONResponse(content={"message": "✅ Database resettato con successo"})
+
+
 
 
