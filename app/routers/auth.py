@@ -96,3 +96,42 @@ async def lista_utenti():
         result = await session.execute(select(Utente))
         utenti = result.scalars().all()
         return [{"id": u.id, "username": u.username} for u in utenti]
+
+@router.post("/demo-login")
+async def demo_login():
+    try:
+        # Genera credenziali demo
+        unique_id = uuid.uuid4().hex[:8]
+        username = f"demo_{unique_id}"
+        password = username
+        keysession = str(uuid.uuid4())
+        now = datetime.utcnow()
+        expires_at = now + timedelta(hours=12)
+
+        async with SessionLocal() as session:
+            utente = Utente(
+                username=username,
+                password=password,
+                keysession=keysession,
+                createdAt=now,
+                expiredAt=expires_at,
+                isDemo=True  # ✅ flag demo utente
+            )
+
+            session.add(utente)
+            await session.commit()
+            await session.refresh(utente)
+
+            print(f"[DEBUG] Utente demo creato: {username}")
+
+            return {
+                "username": utente.username,
+                "password": utente.password,
+                "token": utente.keysession,
+                "expires_at": utente.expiredAt.isoformat(),
+                "user_id": utente.id
+            }
+
+    except Exception as e:
+        print(f"[ERRORE] demo_login: {e}")
+        raise HTTPException(status_code=500, detail="Errore nella creazione utente demo")

@@ -42,3 +42,4 @@ class Utente(Base):
     keysession = Column(String)
     createdAt = Column(DateTime, name="createdat")
     expiredAt = Column(DateTime, name="expiredat")
+    is_demo = Column(Boolean, default=False)

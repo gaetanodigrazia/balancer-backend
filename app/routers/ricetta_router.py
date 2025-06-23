@@ -9,15 +9,22 @@ import os
 
 from sqlalchemy import text
 from app.models.schema_models import RicettaOutput, DettagliPasto
-from app.models.orm_models import SchemaNutrizionale
+from app.models.orm_models import SchemaNutrizionale, Utente, Prodotto, Scontrino
+
 from app.database import SessionLocal
+from sqlalchemy import inspect
 
 router = APIRouter(prefix="/ricette", tags=["ricette"])
 logger = logging.getLogger("uvicorn.error")
 
 client = None  # Assicurati che venga inizializzato nel main
 
-
+def debug_is_demo_column(sync_conn):
+    insp = inspect(sync_conn)
+    print("🔍 Colonne utenti:")
+    for col in insp.get_columns("utenti"):
+        print(f" - {col['name']} ({col['type']})")
+        
 def normalizza_dettagli(raw_dettagli: dict) -> dict:
     normalized = {}
     if not isinstance(raw_dettagli, dict):
@@ -160,15 +167,18 @@ async def init_db(secret: str):
 @router.get("/reset-db/{secret}")
 async def reset_db(secret: str):
     expected_secret = os.getenv("INIT_SECRET")
-
     if secret != expected_secret:
-        raise HTTPException(status_code=403, detail="❌ Accesso non autorizzato")
+        raise HTTPException(status_code=403, detail="Secret errato")
 
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
+            await conn.run_sync(debug_is_demo_column)
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Errore nel reset: {str(e)}")
 
     return JSONResponse(content={"message": "✅ Database resettato con successo"})
+
+
