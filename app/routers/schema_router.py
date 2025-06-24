@@ -8,6 +8,8 @@ from app.models.orm_models import SchemaNutrizionale, Utente
 from app.database import SessionLocal
 from sqlalchemy import text
 from sqlalchemy.future import select
+from app.routers.token_router import sign_timestamp  # import della funzione di firma
+import hmac
 
 router = APIRouter(prefix="/schemi-nutrizionali", tags=["schemi-nutrizionali"])
 logger = logging.getLogger("uvicorn.error")
@@ -142,6 +144,16 @@ async def salva_dati_generali(payload: dict = Body(...), current_user: Utente = 
         if not user:
             raise HTTPException(status_code=401, detail="Token non valido")
 
+        # ✅ Verifica del token demo (solo per utenti demo)
+        if user.is_demo:
+            ts = payload.get("ts")
+            sig = payload.get("sig")
+            if not ts or not sig:
+                raise HTTPException(status_code=400, detail="Token demo mancante")
+            expected_sig = sign_timestamp(ts)
+            if not hmac.compare_digest(sig, expected_sig):
+                raise HTTPException(status_code=400, detail="Token demo non valido")
+
         dettagli = "{}"
         if clona_da:
             modello = await session.get(SchemaNutrizionale, clona_da)
@@ -185,8 +197,6 @@ async def salva_dati_generali(payload: dict = Body(...), current_user: Utente = 
         logger.info(f"✅ Salvato schema '{nome}' (ID: {db_schema.id}) per utente {user.id}")
 
     return {"status": "ok", "message": "Dati generali salvati con successo"}
-
-
 
 @router.post("/dinamico/completo")
 async def salva_schema_completo(payload: dict = Body(...), current_user: Utente = Depends(get_current_user)):

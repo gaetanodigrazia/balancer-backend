@@ -9,9 +9,13 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 
+
 load_dotenv()
 
 from app.routers import ricetta_router, schema_router, scontrino_router, auth
+from app.routers.token_router import router as token_router
+from app.routers.utente_router import router as utente_router
+
 
 # ✅ Logging setup
 logging.basicConfig(
@@ -91,7 +95,8 @@ app.include_router(ricetta_router.router)
 app.include_router(schema_router.router)
 app.include_router(scontrino_router.router)
 app.include_router(auth.router)
-
+app.include_router(utente_router)
+app.include_router(token_router) 
 @app.get("/")
 async def root():
     return {"message": "Balancer backend è attivo."}

@@ -95,6 +95,14 @@ class ProdottoOut(BaseModel):
         from_attributes = True
 
 
+class UtenteOut(BaseModel):
+    id: int
+    username: str
+    is_demo: bool
+
+    class Config:
+        from_attributes = True
+
 # --- Aggiornamento ingrediente (se serve) ---
 
 class IngredienteUpdate(BaseModel):
