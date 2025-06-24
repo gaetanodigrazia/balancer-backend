@@ -4,6 +4,8 @@ from app.database import SessionLocal
 from app.models.orm_models import Utente
 
 async def get_current_user(authorization: str = Header(...)) -> Utente:
+    print("🔐 get_current_user chiamato")
+
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token mancante o formato errato")
 

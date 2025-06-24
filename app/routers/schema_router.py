@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Body, Depends, Header
+from fastapi import APIRouter, HTTPException, Body, Depends, Path
 from typing import List
 import json
 import logging
@@ -10,6 +10,8 @@ from sqlalchemy import text
 from sqlalchemy.future import select
 from app.routers.token_router import sign_timestamp  # import della funzione di firma
 import hmac
+from fastapi import Security
+from typing import Optional
 
 router = APIRouter(prefix="/schemi-nutrizionali", tags=["schemi-nutrizionali"])
 logger = logging.getLogger("uvicorn.error")
@@ -416,8 +418,7 @@ async def clona_schema(schema_id: int):
         )
 
 
-@router.get("/globali", response_model=List[SchemaNutrizionaleOut])
-async def get_globali():
+
     async with SessionLocal() as session:
         result = await session.execute(
             text("SELECT * FROM schemi_nutrizionali WHERE is_global = true ORDER BY id DESC")
@@ -438,13 +439,37 @@ async def get_globali():
         return schemi
     
     
-@router.get("/globali", response_model=List[SchemaNutrizionaleOut])
+@router.get("/schema/globali", response_model=List[SchemaNutrizionaleOut])
+async def get_schemi_globali(current_user: Utente = Depends(get_current_user)):
+    async with SessionLocal() as session:
+        result = await session.execute(
+            text("SELECT * FROM schemi_nutrizionali WHERE is_global = 'true' ORDER BY id DESC")
+        )
+        rows = result.fetchall()
+
+        schemi = []
+        for row in rows:
+            data = dict(row._mapping)
+            if data.get('dettagli'):
+                try:
+                    dettagli_raw = json.loads(data['dettagli'])
+                    data['dettagli'] = normalizza_dettagli(dettagli_raw)
+                except Exception:
+                    data['dettagli'] = {}
+            else:
+                data['dettagli'] = {}
+            schemi.append(data)
+
+        return schemi
+    
+@router.get("/schema/all", response_model=List[SchemaNutrizionaleOut])
 async def get_schemi_globali():
     async with SessionLocal() as session:
         result = await session.execute(
-            text("SELECT * FROM schemi_nutrizionali WHERE is_global = true ORDER BY id DESC")
+            text("SELECT * FROM schemi_nutrizionali ORDER BY id DESC")
         )
         rows = result.fetchall()
+
         schemi = []
         for row in rows:
             data = dict(row._mapping)
@@ -457,4 +482,41 @@ async def get_schemi_globali():
             else:
                 data['dettagli'] = {}
             schemi.append(data)
+
         return schemi
+    
+
+@router.post("/schema/{schema_id}/disattiva-globale")
+async def disattiva_schema_globale(
+    schema_id: int = Path(..., title="ID dello schema da aggiornare"),
+):
+    async with SessionLocal() as session:
+        schema = await session.get(SchemaNutrizionale, schema_id)
+
+        if not schema:
+            raise HTTPException(status_code=404, detail="Schema non trovato")
+
+        if not schema.is_global:
+            raise HTTPException(status_code=400, detail="Lo schema non è già globale")
+        
+        schema.is_global = False
+        await session.commit()
+        await session.refresh(schema)
+
+    return {"status": "ok", "message": f"Schema {schema_id} aggiornato con is_global = false"}
+
+@router.post("/schema/{schema_id}/attiva-globale")
+async def attiva_schema_globale(
+    schema_id: int = Path(..., title="ID dello schema da aggiornare"),
+):
+    async with SessionLocal() as session:
+        schema = await session.get(SchemaNutrizionale, schema_id)
+
+        if not schema:
+            raise HTTPException(status_code=404, detail="Schema non trovato")
+
+        schema.is_global = True
+        await session.commit()
+        await session.refresh(schema)
+
+    return {"status": "ok", "message": f"Schema {schema_id} aggiornato con is_global = true"}
