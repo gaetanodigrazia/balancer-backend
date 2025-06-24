@@ -56,14 +56,6 @@ class LoggingAndCORSMiddleware(BaseHTTPMiddleware):
             "➡️ %s %s → %s [%.3fs] | IP: %s | UA: %s",
             request.method, request.url.path, response.status_code, duration, ip, user_agent
         )
-
-        origin = request.headers.get("origin")
-        if origin in ALLOWED_ORIGINS:
-            response.headers["Access-Control-Allow-Origin"] = origin
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-            response.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS, PUT, DELETE"
-            response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
-
         return response
 
 app.add_middleware(LoggingAndCORSMiddleware)
