@@ -1,5 +1,8 @@
 from sqlalchemy import Column, Integer, Float, Boolean, String, ForeignKey, Text, DateTime
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.ext.declarative import declarative_base
+import uuid
 from app.database import Base
 
 class Scontrino(Base):
@@ -21,7 +24,7 @@ class Prodotto(Base):
 
 class SchemaNutrizionale(Base):
     __tablename__ = "schemi_nutrizionali"
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     nome = Column(String, unique=True, nullable=False, index=True)
     calorie = Column(Float, nullable=False)
     carboidrati = Column(Float, nullable=False)
@@ -30,7 +33,7 @@ class SchemaNutrizionale(Base):
     acqua = Column(Float, nullable=False)
     dettagli = Column(Text, nullable=False)
     is_modello = Column(Boolean, default=False)
-    utente_id = Column(Integer, ForeignKey("utenti.id"), nullable=True)
+    utente_id = Column(UUID(as_uuid=True), ForeignKey("utenti.id"), nullable=True)
     utente = relationship("Utente")
     is_global = Column(Boolean, default=False)
 

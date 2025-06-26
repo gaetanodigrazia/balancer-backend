@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Union
+from uuid import UUID
 
 
 # --- Ricetta ---
@@ -44,7 +45,7 @@ class DettagliPasto(BaseModel):
 # --- Schema Nutrizionale ---
 
 class SchemaNutrizionaleInput(BaseModel):
-    id: Optional[int] = None
+    id: Optional[UUID] = None
     nome: str
     calorie: float
     carboidrati: float
@@ -57,7 +58,7 @@ class SchemaNutrizionaleInput(BaseModel):
 
 
 class SchemaNutrizionaleOut(SchemaNutrizionaleInput):
-    id: int
+    id: UUID  # adesso obbligatorio nel response
 
     class Config:
         from_attributes = True
@@ -96,7 +97,7 @@ class ProdottoOut(BaseModel):
 
 
 class UtenteOut(BaseModel):
-    id: int
+    id: UUID
     username: str
     is_demo: bool
 

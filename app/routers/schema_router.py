@@ -12,6 +12,7 @@ from app.routers.token_router import sign_timestamp  # import della funzione di 
 import hmac
 from fastapi import Security
 from typing import Optional
+from uuid import UUID
 
 router = APIRouter(prefix="/schemi-nutrizionali", tags=["schemi-nutrizionali"])
 logger = logging.getLogger("uvicorn.error")
@@ -273,7 +274,7 @@ async def salva_singolo_pasto(payload: dict = Body(...), current_user: Utente = 
 
 
 @router.delete("/{id}")
-async def elimina_schema(id: int, current_user: Utente = Depends(get_current_user)):
+async def elimina_schema(id: UUID, current_user: Utente = Depends(get_current_user)):
     async with SessionLocal() as session:
         schema = await session.get(SchemaNutrizionale, id)
         if not schema or schema.utente_id != current_user.id:
@@ -284,7 +285,7 @@ async def elimina_schema(id: int, current_user: Utente = Depends(get_current_use
 
 
 @router.get("/{schema_id}")
-async def get_schema(schema_id: int, current_user: Utente = Depends(get_current_user)):
+async def get_schema(schema_id: UUID, current_user: Utente = Depends(get_current_user)):
     async with SessionLocal() as session:
         db_schema = await session.get(SchemaNutrizionale, schema_id)
         if not db_schema or (db_schema.utente_id != current_user.id and not db_schema.is_global):
@@ -303,7 +304,7 @@ async def get_schema(schema_id: int, current_user: Utente = Depends(get_current_
 
 
 @router.delete("/{schema_id}/opzione/{tipo_pasto}/{opzione_id}/")
-async def elimina_opzione_per_id(schema_id: int, tipo_pasto: str, opzione_id: str):
+async def elimina_opzione_per_id(schema_id: UUID, tipo_pasto: str, opzione_id: str):
     async with SessionLocal() as session:
         db_schema = await session.get(SchemaNutrizionale, schema_id)
         if not db_schema:
@@ -359,7 +360,7 @@ async def getModelli(current_user: Utente = Depends(get_current_user)):
 
 
 @router.post("/clona/{schema_id}", response_model=SchemaNutrizionaleOut)
-async def clona_schema(schema_id: int):
+async def clona_schema(schema_id: UUID):
     async with SessionLocal() as session:
         db_schema = await session.get(SchemaNutrizionale, schema_id)
         if not db_schema:
@@ -488,7 +489,7 @@ async def get_schemi_globali():
 
 @router.post("/schema/{schema_id}/disattiva-globale")
 async def disattiva_schema_globale(
-    schema_id: int = Path(..., title="ID dello schema da aggiornare"),
+    schema_id: UUID  = Path(..., title="ID dello schema da aggiornare"),
 ):
     async with SessionLocal() as session:
         schema = await session.get(SchemaNutrizionale, schema_id)
@@ -507,7 +508,7 @@ async def disattiva_schema_globale(
 
 @router.post("/schema/{schema_id}/attiva-globale")
 async def attiva_schema_globale(
-    schema_id: int = Path(..., title="ID dello schema da aggiornare"),
+    schema_id: UUID = Path(..., title="ID dello schema da aggiornare"),
 ):
     async with SessionLocal() as session:
         schema = await session.get(SchemaNutrizionale, schema_id)
